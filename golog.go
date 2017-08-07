@@ -6,6 +6,26 @@ import (
 	"log"
 )
 
+// Logger interface
+type Logger interface {
+	Start()
+	Stop()
+	deleteLogger()
+	Level() Level
+	InChan() chan *message
+	QuitChan() chan struct{}
+}
+
+// LogWrapper holds an array of Logger
+type LogWrapper struct {
+	loggers []Logger
+}
+
+// New creates an empty LogWrapper
+func New() *LogWrapper {
+	return &LogWrapper{}
+}
+
 // Level signifies the severity or intensity of the log event.
 type Level int
 
@@ -43,67 +63,63 @@ var formats = map[Level]string{
 
 // New creates a new logger, appends it to the loggers array,
 // and begins a goroutine running the logger.
-func New(w io.Writer, minLevel Level, flag int) CreateLoggerErr {
+func (wrapper *LogWrapper) New(w io.Writer, minLevel Level, flag int) CreateLoggerErr {
 	if flag == 0 {
 		flag = log.Ldate|log.Ltime|log.Lshortfile
 	}
 	if minLevel < TRACE || minLevel > FATAL {
 		return LevelTypeErr{level: minLevel}
 	}
-	l := newLogger(w, minLevel, flag)
-	loggers = append(loggers, l)
+	l := wrapper.newLogger(w, minLevel, flag)
+	wrapper.loggers = append(wrapper.loggers, l)
 	go l.Start()
 	return nil
 }
 
-func (l *Level) String() string {
-	return fmt.Sprintf("%s", l)
-}
-
 // Terminate stops all logger goroutines and deletes them from loggers array
-func Terminate() {
-	for _, l := range loggers {
+func (wrapper *LogWrapper) Terminate() {
+	for _, l := range wrapper.loggers {
 		logger := l
 		logger.deleteLogger()
 		logger.Stop()
 	}
 }
 
-func write(level Level, format string, v ...interface{}) {
+func (wrapper *LogWrapper) write(level Level, format string, v ...interface{}) {
 	m := &message{
 		Level: level,
 		Body:  formats[level] + fmt.Sprintf(format, v...),
 	}
-	for i := range loggers {
-		l := loggers[i]
+	for i := range wrapper.loggers {
+		l := wrapper.loggers[i]
 		if l.Level() > level {
 			continue
 		}
-		l.inChan <- m
+		l.InChan() <- m
 	}
 }
 
 // Trace sends write request to loggers.
-func Trace(format string, v ...interface{}) {
-	write(TRACE, format, v...)
+func (wrapper *LogWrapper) Trace(format string, v ...interface{}) {
+	wrapper.write(TRACE, format, v...)
 }
 
 // Info sends write request to loggers.
-func Info(format string, v ...interface{}) {
-	write(INFO, format, v...)
+func (wrapper *LogWrapper) Info(format string, v ...interface{}) {
+	wrapper.write(INFO, format, v...)
 }
 
 // Warn sends write request to loggers.
-func Warn(format string, v ...interface{}) {
-	write(WARN, format, v...)
+func (wrapper *LogWrapper) Warn(format string, v ...interface{}) {
+	wrapper.write(WARN, format, v...)
 }
 
 // Error sends write request to loggers.
-func Error(format string, v ...interface{}) {
-	write(ERROR, format, v...)
+func (wrapper *LogWrapper) Error(format string, v ...interface{}) {
+	wrapper.write(ERROR, format, v...)
 }
 
 // Fatal sends write request to loggers.
-func Fatal(format string, v ...interface{}) {
-	write(FATAL, format, v...)
+func (wrapper *LogWrapper) Fatal(format string, v ...interface{}) {
+	wrapper.write(FATAL, format, v...)
 }

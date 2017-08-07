@@ -12,24 +12,24 @@ type logger struct {
 	flags    int
 	inChan   chan *message
 	quitChan chan struct{}
+	mainLog  *LogWrapper
 }
 
-func newLogger(w io.Writer, minLevel Level, flag int) *logger {
-	l := &logger{
+func (l *LogWrapper) newLogger(w io.Writer, minLevel Level, flag int) *logger {
+	lg := &logger{
 		w:        w,
 		inChan:   make(chan *message),
 		quitChan: make(chan struct{}),
 		minLevel: minLevel,
 		Logger:   log.New(w, "", flag),
+		mainLog:  l,
 	}
-	return l
+	return lg
 }
 
 func (l *logger) Level() Level {
 	return l.minLevel
 }
-
-var loggers []*logger
 
 func (l *logger) Start() {
 	for {
@@ -44,14 +44,14 @@ func (l *logger) Start() {
 }
 
 func (l *logger) deleteLogger() {
-	var lArray []*logger
-	for i, l := range loggers {
-		if l == loggers[i] {
+	var lArray []Logger
+	for i, logger := range l.mainLog.loggers {
+		if logger == l.mainLog.loggers[i] {
 			continue
 		}
 		lArray = append(lArray, l)
 	}
-	loggers = lArray
+	l.mainLog.loggers = lArray
 }
 
 func (l *logger) Stop() {
@@ -60,4 +60,14 @@ func (l *logger) Stop() {
 
 	close(l.inChan)
 	close(l.quitChan)
+}
+
+// InChan is exported to interface in order to send messages
+func (l *logger) InChan() chan *message {
+	return l.inChan
+}
+
+// QuitChan is exported to interface in order to send messages
+func (l *logger) QuitChan() chan struct{} {
+	return l.quitChan
 }
