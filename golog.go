@@ -50,13 +50,7 @@ func New(w io.Writer, minLevel Level, flag int) CreateLoggerErr {
 	if minLevel < TRACE || minLevel > FATAL {
 		return LevelTypeErr{level: minLevel}
 	}
-	l := &logger{
-		w:        w,
-		inChan:   make(chan *message),
-		quitChan: make(chan struct{}),
-		minLevel: minLevel,
-		Logger:   log.New(w, "", flag),
-	}
+	l := newLogger(w, minLevel, flag)
 	loggers = append(loggers, l)
 	go l.Start()
 	return nil

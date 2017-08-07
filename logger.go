@@ -14,6 +14,17 @@ type logger struct {
 	quitChan chan struct{}
 }
 
+func newLogger(w io.Writer, minLevel Level, flag int) *logger {
+	l := &logger{
+		w:        w,
+		inChan:   make(chan *message),
+		quitChan: make(chan struct{}),
+		minLevel: minLevel,
+		Logger:   log.New(w, "", flag),
+	}
+	return l
+}
+
 func (l *logger) Level() Level {
 	return l.minLevel
 }
