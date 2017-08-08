@@ -56,6 +56,7 @@ type message struct {
 var formats = map[Level]string{
 	TRACE: "[TRACE] ",
 	INFO:  "[INFO] ",
+	DEBUG: "[DEBUG] ",
 	WARN:  "[WARN] ",
 	ERROR: "[ERROR] ",
 	FATAL: "[FATAL] ",
@@ -65,7 +66,7 @@ var formats = map[Level]string{
 // and begins a goroutine running the logger.
 func (wrapper *LogWrapper) New(w io.Writer, minLevel Level, flag int) CreateLoggerErr {
 	if flag == 0 {
-		flag = log.Ldate|log.Ltime|log.Lshortfile
+		flag = log.Ldate | log.Ltime | log.Lshortfile
 	}
 	if minLevel < TRACE || minLevel > FATAL {
 		return LevelTypeErr{level: minLevel}
@@ -107,6 +108,11 @@ func (wrapper *LogWrapper) Trace(format string, v ...interface{}) {
 // Info sends write request to loggers.
 func (wrapper *LogWrapper) Info(format string, v ...interface{}) {
 	wrapper.write(INFO, format, v...)
+}
+
+// Debug sends write request to loggers.
+func (wrapper *LogWrapper) Debug(format string, v ...interface{}) {
+	wrapper.write(DEBUG, format, v...)
 }
 
 // Warn sends write request to loggers.
