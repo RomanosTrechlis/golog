@@ -2,11 +2,18 @@ package golog
 
 import (
 	"testing"
+
+	. "github.com/smartystreets/goconvey/convey"
 )
 
-func TestLevelTypeErr_Error(t *testing.T) {
-	s := LevelTypeErr{level: TRACE}.Error()
-	if s != "[TRACE] is not an acceptable value" {
-		t.Error("expected '[TRACE] is not an acceptable value'")
-	}
+func TestLevelTypeError(t *testing.T) {
+	Convey("Given a new LevelTypeErr", t, func() {
+		s := LevelTypeErr{level: TRACE}.Error()
+		So(s, ShouldEqual, "[TRACE] is not an acceptable value")
+	})
+
+	Convey("Given a new LevelTypeErr", t, func() {
+		s := LevelTypeErr{level: INFO}.Error()
+		So(s, ShouldEqual, "[INFO] is not an acceptable value")
+	})
 }

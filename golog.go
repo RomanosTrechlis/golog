@@ -66,7 +66,7 @@ var formats = map[Level]string{
 // and begins a goroutine running the logger.
 func (wrapper *LogWrapper) New(w io.Writer, minLevel Level, flag int) CreateLoggerErr {
 	if flag == 0 {
-		flag = log.Ldate | log.Ltime | log.Lshortfile
+		flag = log.Ldate | log.Ltime
 	}
 	if minLevel < TRACE || minLevel > FATAL {
 		return LevelTypeErr{level: minLevel}
