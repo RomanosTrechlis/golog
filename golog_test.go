@@ -3,6 +3,8 @@ package golog_test
 import (
 	"fmt"
 
+	"log"
+
 	"github.com/RomanosTrechlis/golog"
 )
 
@@ -13,18 +15,24 @@ func ExampleNewWriterWrapper() {
 	w := golog.NewWriterWrapper(writer1{}, writer2{})
 	_, _ = w.Write([]byte("test"))
 
-	// Output: Writer: test
-	// Writer: test
+	// Output: Writer: testWriter: test
+}
+
+func ExampleNewLogger() {
+	l := golog.NewLogger("TRACE ", log.Lshortfile, golog.NewWriterWrapper(writer1{}, writer2{}))
+	l.Print("test")
+	// Output: Writer: TRACE golog_test.go:23: test
+	// Writer: TRACE golog_test.go:23: test
 }
 
 type writer1 struct{}
 type writer2 struct{}
 
 func (w writer1) Write(p []byte) (n int, err error) {
-	fmt.Println("Writer: " + string(p))
+	fmt.Print("Writer: " + string(p))
 	return len(p), nil
 }
 func (w writer2) Write(p []byte) (n int, err error) {
-	fmt.Println("Writer: " + string(p))
+	fmt.Print("Writer: " + string(p))
 	return len(p), nil
 }

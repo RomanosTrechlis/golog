@@ -2,6 +2,7 @@ package golog
 
 import (
 	"io"
+	"log"
 	"sync"
 )
 
@@ -13,6 +14,11 @@ type writerWrapper struct {
 // containing an array of io.Writers.
 func NewWriterWrapper(writers ...io.Writer) io.Writer {
 	return writerWrapper{writers}
+}
+
+// NewLogger returns a logger that can have multiple io.Writer.
+func NewLogger(prefix string, flag int, writers ...io.Writer) *log.Logger {
+	return log.New(NewWriterWrapper(writers...), prefix, flag)
 }
 
 // Write implements the io.Writer interface for the writerWrapper struct.
