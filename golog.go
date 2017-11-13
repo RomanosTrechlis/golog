@@ -1,131 +1,50 @@
 package golog
 
 import (
-	"fmt"
 	"io"
-	"log"
+	"sync"
 )
 
-// Logger interface
-type Logger interface {
-	Start()
-	Stop()
-	deleteLogger()
-	Level() Level
-	InChan() chan *message
-	QuitChan() chan struct{}
+type writerWrapper struct {
+	writers []io.Writer
 }
 
-// LogWrapper holds an array of Logger
-type LogWrapper struct {
-	loggers []Logger
+// NewWriterWrapper creates a wrapper struct implementing the io.Writer interface,
+// containing an array of io.Writers.
+func NewWriterWrapper(writers ...io.Writer) io.Writer {
+	return writerWrapper{writers}
 }
 
-// New creates an empty LogWrapper
-func New() *LogWrapper {
-	return &LogWrapper{}
-}
+// Write implements the io.Writer interface for the writerWrapper struct.
+//
+// For every io.Writer wrapped, it executes a goroutine that Writes the
+// passed. Errors are return to a channel. The Write method returns the
+// first error passed into the channel.
+func (w writerWrapper) Write(p []byte) (n int, err error) {
+	n = len(p)
 
-// Level signifies the severity or intensity of the log event.
-type Level int
+	var wg sync.WaitGroup
+	wg.Add(len(w.writers))
 
-const (
-	// TRACE is used for when we are "tracing" the code
-	// and trying to find one part of a function specifically.
-	TRACE Level = iota
-	// DEBUG is used to log information that is diagnostically
-	// helpful to people more than just developers.
-	DEBUG
-	// INFO is used for generally useful information.
-	INFO
-	// WARN is used for anything that can potentially cause application oddities.
-	WARN
-	// ERROR is used for any error which is fatal to the operation,
-	// but not the service or application.
-	ERROR
-	// FATAL is used for any error that is forcing a shutdown
-	// of the service or application to prevent data loss.
-	FATAL
-)
-
-type message struct {
-	Level Level
-	Body  string
-}
-
-var formats = map[Level]string{
-	TRACE: "[TRACE] ",
-	INFO:  "[INFO] ",
-	DEBUG: "[DEBUG] ",
-	WARN:  "[WARN] ",
-	ERROR: "[ERROR] ",
-	FATAL: "[FATAL] ",
-}
-
-// New creates a new logger, appends it to the loggers array,
-// and begins a goroutine running the logger.
-func (wrapper *LogWrapper) New(w io.Writer, minLevel Level, flag int) CreateLoggerErr {
-	if flag == 0 {
-		flag = log.Ldate | log.Ltime
+	errChan := make(chan error, len(w.writers))
+	for _, writer := range w.writers {
+		go write(&wg, writer, p, errChan)
 	}
-	if minLevel < TRACE || minLevel > FATAL {
-		return LevelTypeErr{level: minLevel}
-	}
-	l := wrapper.newLogger(w, minLevel, flag)
-	wrapper.loggers = append(wrapper.loggers, l)
-	go l.Start()
-	return nil
-}
 
-// Terminate stops all logger goroutines and deletes them from loggers array
-func (wrapper *LogWrapper) Terminate() {
-	for _, l := range wrapper.loggers {
-		logger := l
-		logger.deleteLogger()
-		logger.Stop()
+	wg.Wait()
+
+	select {
+	case err = <-errChan:
+		return n, err
+	default:
+		return n, nil
 	}
 }
 
-func (wrapper *LogWrapper) write(level Level, format string, v ...interface{}) {
-	m := &message{
-		Level: level,
-		Body:  formats[level] + fmt.Sprintf(format, v...),
+func write(wg *sync.WaitGroup, writer io.Writer, p []byte, errChan chan error) {
+	defer wg.Done()
+	_, err := writer.Write(p)
+	if err != nil {
+		errChan <- err
 	}
-	for i := range wrapper.loggers {
-		l := wrapper.loggers[i]
-		if l.Level() > level {
-			continue
-		}
-		l.InChan() <- m
-	}
-}
-
-// Trace sends write request to loggers.
-func (wrapper *LogWrapper) Trace(format string, v ...interface{}) {
-	wrapper.write(TRACE, format, v...)
-}
-
-// Info sends write request to loggers.
-func (wrapper *LogWrapper) Info(format string, v ...interface{}) {
-	wrapper.write(INFO, format, v...)
-}
-
-// Debug sends write request to loggers.
-func (wrapper *LogWrapper) Debug(format string, v ...interface{}) {
-	wrapper.write(DEBUG, format, v...)
-}
-
-// Warn sends write request to loggers.
-func (wrapper *LogWrapper) Warn(format string, v ...interface{}) {
-	wrapper.write(WARN, format, v...)
-}
-
-// Error sends write request to loggers.
-func (wrapper *LogWrapper) Error(format string, v ...interface{}) {
-	wrapper.write(ERROR, format, v...)
-}
-
-// Fatal sends write request to loggers.
-func (wrapper *LogWrapper) Fatal(format string, v ...interface{}) {
-	wrapper.write(FATAL, format, v...)
 }
